@@ -62,7 +62,7 @@ def get_spans(tokens, segments, blank):
         ltr = cur_token[ltr_idx]
         if seg.label == blank:
             continue
-        assert seg.label == ltr, f"{seg.label} != {ltr}"
+        assert ltr in [seg.label, '<star>'], f"{ltr} != {seg.label}" #seg.label == ltr, f"{seg.label} != {ltr}"
         if (ltr_idx) == 0:
             start = seg_idx
         if ltr_idx == len(cur_token) - 1:
@@ -226,23 +226,34 @@ def get_alignments(
 ):
     assert len(tokens) > 0, "Empty transcript"
 
-    dictionary = tokenizer.get_vocab()
-    dictionary = {k.lower(): v for k, v in dictionary.items()}
-    dictionary["<star>"] = len(dictionary)
-
-    # Force Alignment
-    token_indices = [
-        dictionary[c] for c in " ".join(tokens).split(" ") if c in dictionary
-    ]
-
-    blank_id = dictionary.get("<blank>", tokenizer.pad_token_id)
-
     if not emissions.is_cpu:
         emissions = emissions.cpu()
+    log_probs = emissions.unsqueeze(0).float().numpy()
+
+    dictionary = tokenizer.get_vocab()
+    dictionary = {k.lower(): v for k, v in dictionary.items()}
+
+
+    # for model that emits star dimension
+    if len(dictionary) < log_probs.shape[-1]:
+        dictionary["<star>"] = len(dictionary)
+        token_indices = [
+        dictionary[c] for c in " ".join(tokens).split(" ") if c in dictionary
+        ]
+    else: # for model that does not emit star dimension
+        unk_tk = tokenizer.unk_token.lower()
+        token_indices = [
+            dictionary[c] if c != '<star>' else dictionary[unk_tk]
+            for c in " ".join(tokens).split(" ")
+            if c]
+
+    # Force Alignment
+    blank_id = dictionary.get("<blank>", tokenizer.pad_token_id)
+
     targets = np.asarray([token_indices], dtype=np.int64)
 
     path, scores = forced_align(
-        emissions.unsqueeze(0).float().numpy(),
+        log_probs,
         targets,
         blank=blank_id,
     )
@@ -255,7 +266,8 @@ def get_alignments(
 
 def load_alignment_model(
     device: str,
-    model_path: str = "MahmoudAshraf/mms-300m-1130-forced-aligner",
+    model_path: str = "language-and-voice-lab/wav2vec2-large-xlsr-53-icelandic-ep30-967h",
+    #"MahmoudAshraf/mms-300m-1130-forced-aligner",
     attn_implementation: str = None,
     dtype: torch.dtype = torch.float32,
 ):
@@ -270,6 +282,12 @@ def load_alignment_model(
             attn_implementation = "flash_attention_2"
         else:
             attn_implementation = "sdpa"
+
+    # catch for older w2v2 models that dont return attention mask
+    # without breaking nice defaults for newer models
+    elif 'pad' in attn_implementation.lower():
+        attn_implementation = None
+
 
     model = (
         AutoModelForCTC.from_pretrained(

@@ -197,12 +197,12 @@ def split_text(text: str, split_size: str = "word"):
 
     elif split_size == "word":
         return text.split()
-    elif split_size == "char":
+    elif split_size == "char": # dont use with custom star
         return list(text)
 
 
 def preprocess_text(
-    text, romanize, language, split_size="word", star_frequency="segment"
+    text, romanize, language, split_size="word", star_frequency="custom"
 ):
     assert split_size in [
         "sentence",
@@ -210,9 +210,10 @@ def preprocess_text(
         "char",
     ], "Split size must be sentence, word, or char"
     assert star_frequency in [
-        "segment",
-        "edges",
-    ], "Star frequency must be segment or edges"
+    #    "segment",
+    #    "edges",
+        "custom",
+    ], "Star frequency must be custom" #segment or edges"
     if language in ["jpn", "chi"]:
         split_size = "char"
     text_split = split_text(text, split_size)
@@ -237,6 +238,13 @@ def preprocess_text(
         tokens_starred = ["<star>"] + tokens + ["<star>"]
         text_starred = ["<star>"] + text_split + ["<star>"]
 
+
+    # "custom" star frequency for text that has already had star added
+    # by other process
+    elif star_frequency == "custom":
+        tokens_starred = [t if t != '< s t a r >' else '<star>' for t in tokens]
+        text_starred = text_split
+
     return tokens_starred, text_starred
 
 
@@ -256,8 +264,9 @@ def postprocess_results(
     results = []
 
     for i, t in enumerate(text_starred):
-        if t == "<star>":
-            continue
+        # ! should comment back in if star_frequency is not "custom"
+        #if t == "<star>":
+        #    continue
         span = spans[i]
         seg_start_idx = span[0].start
         seg_end_idx = span[-1].end

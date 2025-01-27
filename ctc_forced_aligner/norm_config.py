@@ -199,8 +199,8 @@ shared_digits = (
 shared_punc_list = (
     basic_punc
     + all_punct_quotes
-    + greater_than_sign
-    + lesser_than_sign
+    #+ greater_than_sign
+    #+ lesser_than_sign
     + inverted_question_mark
     + full_stop
     + semicolon
@@ -217,8 +217,8 @@ shared_punc_list = (
 )
 
 shared_mappping = {
-    lesser_than_symbol: "",
-    greater_than_symbol: "",
+    #lesser_than_symbol: "",
+    #greater_than_symbol: "",
     nbsp_written_form: "",
     r"(\S+)" + mapping_quotes + r"(\S+)": r"\1'\2",
 }

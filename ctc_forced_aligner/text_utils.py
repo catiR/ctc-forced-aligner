@@ -143,7 +143,7 @@ special_isos_uroman = [
 
 def normalize_uroman(text):
     text = text.lower()
-    text = re.sub("([^a-z' ])", " ", text)
+    text = re.sub("([^a-z' \U0001f96d])", " ", text)
     text = re.sub(" +", " ", text)
     return text.strip()
 
@@ -197,13 +197,17 @@ def split_text(text: str, split_size: str = "word"):
 
     elif split_size == "word":
         return text.split()
-    elif split_size == "char": # dont use with custom star
+    elif split_size == "char":
         return list(text)
 
 
 def preprocess_text(
-    text, romanize, language, split_size="word", star_frequency="custom"
+    text, romanize, language, split_size="word", star_frequency="custom",
+    star_char = '🥭'
 ):
+    # star character originally was '<star>'
+    # but a single character is more flexible
+    
     assert split_size in [
         "sentence",
         "word",
@@ -229,20 +233,19 @@ def preprocess_text(
     # and doesn't affect the runtime
     if star_frequency == "segment":
         tokens_starred = []
-        [tokens_starred.extend(["<star>", token]) for token in tokens]
+        [tokens_starred.extend([star_char, token]) for token in tokens]
 
         text_starred = []
-        [text_starred.extend(["<star>", chunk]) for chunk in text_split]
+        [text_starred.extend([star_char, chunk]) for chunk in text_split]
 
     elif star_frequency == "edges":
-        tokens_starred = ["<star>"] + tokens + ["<star>"]
-        text_starred = ["<star>"] + text_split + ["<star>"]
-
+        tokens_starred = [star_char] + tokens + [star_char]
+        text_starred = [star_char] + text_split + [star_char]
 
     # "custom" star frequency for text that has already had star added
     # by other process
     elif star_frequency == "custom":
-        tokens_starred = [t if t != '< s t a r >' else '<star>' for t in tokens]
+        tokens_starred = tokens
         text_starred = text_split
 
     return tokens_starred, text_starred
@@ -260,13 +263,13 @@ def postprocess_results(
     stride: float,
     scores: np.ndarray,
     merge_threshold: float = 0.0,
+	continue_token = '<star>', # remove from aligner output if star is not custom
 ):
     results = []
 
     for i, t in enumerate(text_starred):
-        # ! should comment back in if star_frequency is not "custom"
-        #if t == "<star>":
-        #    continue
+        if t == continue_token:
+            continue
         span = spans[i]
         seg_start_idx = span[0].start
         seg_end_idx = span[-1].end

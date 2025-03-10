@@ -48,7 +48,7 @@ def time_to_frame(time):
     return int(time * frames_per_sec)
 
 
-def get_spans(tokens, segments, blank):
+def get_spans(tokens, segments, blank, star_char = '🥭'):
     ltr_idx = 0
     tokens_idx = 0
     intervals = []
@@ -62,7 +62,7 @@ def get_spans(tokens, segments, blank):
         ltr = cur_token[ltr_idx]
         if seg.label == blank:
             continue
-        assert ltr in [seg.label, '<star>'], f"{ltr} != {seg.label}" #seg.label == ltr, f"{seg.label} != {ltr}"
+        assert ltr in [seg.label, star_char], f"{ltr} != {seg.label}" #seg.label == ltr, f"{seg.label} != {ltr}"
         if (ltr_idx) == 0:
             start = seg_idx
         if ltr_idx == len(cur_token) - 1:
@@ -223,6 +223,7 @@ def get_alignments(
     emissions: torch.Tensor,
     tokens: list,
     tokenizer,
+    star_char = '🥭',
 ):
     assert len(tokens) > 0, "Empty transcript"
 
@@ -236,14 +237,14 @@ def get_alignments(
 
     # for model that emits star dimension
     if len(dictionary) < log_probs.shape[-1]:
-        dictionary["<star>"] = len(dictionary)
+        dictionary[star_char] = len(dictionary)
         token_indices = [
         dictionary[c] for c in " ".join(tokens).split(" ") if c in dictionary
         ]
-    else: # for model that does not emit star dimension
-        unk_tk = tokenizer.unk_token.lower()
+    else: # for model that does not emit
+        star_tk = tokenizer.unk_token.lower()
         token_indices = [
-            dictionary[c] if c != '<star>' else dictionary[unk_tk]
+            dictionary[c] if c != star_char else dictionary[star_tk]
             for c in " ".join(tokens).split(" ")
             if c]
 
